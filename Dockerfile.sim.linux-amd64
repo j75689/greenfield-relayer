@@ -11,15 +11,6 @@ COPY . .
 
 # Install minimum necessary dependencies, remove packages
 RUN apk add --no-cache $PACKAGES
-# Install musl-cross for static linking
-RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
-RUN tar -xvf ./x86_64-linux-musl-cross.tgz
-# Build the binary with static linking and strip debugging symbols
-RUN GIT_COMMIT=$(git rev-parse HEAD) \
-    GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d') \
-    VERSION=$(git describe --tags) \
-    REPO=github.com/bnb-chain/greenfield-relayer \
-    GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
 
 # Create a non-root user
 ENV USER=nobody
@@ -34,6 +25,18 @@ RUN adduser \
     --no-create-home \
     --uid "$UID" \
     "$USER"
+
+# Install musl-cross for static linking
+RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
+RUN tar -xvf ./x86_64-linux-musl-cross.tgz
+# Build the binary with static linking and strip debugging symbols
+RUN GIT_COMMIT=$(git rev-parse HEAD) \
+    GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d') \
+    VERSION=$(git describe --tags) \
+    REPO=github.com/bnb-chain/greenfield-relayer \
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
+
+
 
 # Pull binary into a second stage deploy container
 FROM scratch
