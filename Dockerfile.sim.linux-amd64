@@ -28,13 +28,11 @@ RUN echo "nobody:*:65534:65534:nobody:/_nonexistent:/bin/false" > nobody.passwd
 # Pull binary into a stage for deployment
 FROM scratch
 
-ENV WORKDIR=/app
+WORKDIR /app
 
-WORKDIR ${WORKDIR}
-
-COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
+COPY --from=builder /opt/app/build/greenfield-relayer /app/greenfield-relayer
 COPY --from=builder /opt/app/nobody.passwd /etc/passwd
 USER nobody
 
 # Run the app
-ENTRYPOINT [ "/app/greenfield-relayer"]
+ENTRYPOINT [ "/app/greenfield-relayer", "--config-type","$CONFIG_TYPE", "--config-path", "$CONFIG_FILE_PATH","--private-key", "$PRIVATE_KEY", "--bls-private-key", "$BLS_PRIVATE_KEY", "--db-pass", "$DB_PASS", "--aws-region", "$AWS_REGION", "--aws-secret-key", "$AWS_SECRET_KEY"]
