@@ -13,18 +13,14 @@ COPY . .
 RUN apk add --no-cache $PACKAGES
 
 # Create a non-root user
-ENV USER=nobody
-ENV UID=10001
-ENV GID=10001
+ARG USER=nobody
+ARG USER_UID=1000
+ARG USER_GID=1000
 
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/dev/null" \
-    --ingroup "$USER" \
-    --no-create-home \
-    --uid "$UID" \
-    "$USER"
+RUN addgroup -g ${USER_GID} ${USER} \
+  && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
+  && addgroup ${USER} tty \
+  && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
 
 # Install musl-cross for static linking
 RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
