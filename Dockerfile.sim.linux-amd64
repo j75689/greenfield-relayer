@@ -1,18 +1,3 @@
-# # Setup the non-root user
-# FROM alpine:3 as nonroot
-# ENV PACKAGES bash
-# # Create a non-root user
-# ARG USER=app
-# ARG USER_UID=1000
-# ARG USER_GID=1000
-
-# RUN apk add --no-cache $PACKAGES \
-#   && rm -rf /var/cache/apk/* \
-#   && addgroup -g ${USER_GID} ${USER} \
-#   && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
-#   && addgroup ${USER} tty \
-#   && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
-
 # Build the binary statically.
 FROM golang:1.20-alpine as builder
 
@@ -55,8 +40,7 @@ ENV WORKDIR=/app
 WORKDIR ${WORKDIR}
 
 COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
-#COPY --from=nonroot /etc/passwd /etc/passwd
-USER nobody
+USER app
 
 # Run the app
 CMD /app/greenfield-relayer --config-type "$CONFIG_TYPE" --config-path "$CONFIG_FILE_PATH" --private-key "$PRIVATE_KEY" --bls-private-key "$BLS_PRIVATE_KEY" --db-pass "$DB_PASS" --aws-region "$AWS_REGION" --aws-secret-key "$AWS_SECRET_KEY"
