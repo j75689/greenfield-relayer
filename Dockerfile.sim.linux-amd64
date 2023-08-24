@@ -19,6 +19,16 @@ RUN GIT_COMMIT=$(git rev-parse HEAD) \
     REPO=github.com/bnb-chain/greenfield-relayer \
     GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
 
+# Create a non-root user
+RUN adduser \
+    -h "/dev/null" \
+    -g "" \
+    -s "/sbin/nologin" \
+    -D \
+    -H \
+    -u 10001 \
+    nobody
+
 # Pull binary into a second stage deploy container
 FROM scratch
 
@@ -36,8 +46,7 @@ ENV WORKDIR=/app
 WORKDIR ${WORKDIR}
 
 COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
-
-RUN useradd nobody
+COPY --from=builder /etc/passwd /etc/passwd
 USER nobody
 
 # Run the app
