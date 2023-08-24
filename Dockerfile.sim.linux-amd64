@@ -1,4 +1,4 @@
-FROM golang:1.20 as builder
+FROM golang:1.20-alpine as builder
 
 # Set up apk dependencies
 ENV PACKAGES wget make git libc-dev bash gcc linux-headers eudev-dev curl ca-certificates build-base
@@ -22,14 +22,18 @@ RUN GIT_COMMIT=$(git rev-parse HEAD) \
     GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
 
 # Create a non-root user
+ENV USER=docker
+ENV UID=10001
+ENV GID=10001
+
 RUN adduser \
-    -h "/dev/null" \
-    -g "" \
-    -s "/sbin/nologin" \
-    -D \
-    -H \
-    -u 10001 \
-    nobody
+    --disabled-password \
+    --gecos "" \
+    --home "/dev/null" \
+    --ingroup "$USER" \
+    --no-create-home \
+    --uid "$UID" \
+    "$USER"
 
 # Pull binary into a second stage deploy container
 FROM scratch
