@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine as builder
+FROM golang:1.20 as builder
 
 # Set up apk dependencies
 ENV PACKAGES wget make git libc-dev bash gcc linux-headers eudev-dev curl ca-certificates build-base
@@ -11,8 +11,10 @@ COPY . .
 
 # Install minimum necessary dependencies, remove packages
 RUN apk add --no-cache $PACKAGES
+# Install musl-cross for static linking
 RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
 RUN tar -xvf ./x86_64-linux-musl-cross.tgz
+# Build the binary with static linking and strip debugging symbols
 RUN GIT_COMMIT=$(git rev-parse HEAD) \
     GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d') \
     VERSION=$(git describe --tags) \
