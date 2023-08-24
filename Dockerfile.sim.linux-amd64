@@ -1,0 +1,44 @@
+FROM golang:1.20-alpine as builder
+
+# Set up apk dependencies
+ENV PACKAGES wget make git libc-dev bash gcc linux-headers eudev-dev curl ca-certificates build-base
+
+# Set working directory for the build
+WORKDIR /opt/app
+
+# Add source files
+COPY . .
+
+# Install minimum necessary dependencies, remove packages
+RUN apk add --no-cache $PACKAGES
+RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
+RUN tar -xvf ./x86_64-linux-musl-cross.tgz
+RUN GIT_COMMIT=$(git rev-parse HEAD) \
+    GIT_COMMIT_DATE=$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%d') \
+    VERSION=$(git describe --tags) \
+    REPO=github.com/bnb-chain/greenfield-relayer \
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
+
+# Pull binary into a second stage deploy container
+FROM scratch
+
+ENV GREENFIELD_RELAYER_HOME /opt/app
+ENV CONFIG_FILE_PATH $GREENFIELD_RELAYER_HOME/config/config.json
+ENV CONFIG_TYPE "local"
+ENV PRIVATE_KEY ""
+ENV BLS_PRIVATE_KEY ""
+ENV DB_PASS ""
+# You need to specify aws s3 config if you want to load config from s3
+ENV AWS_REGION ""
+ENV AWS_SECRET_KEY ""
+ENV WORKDIR=/app
+
+WORKDIR ${WORKDIR}
+
+COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
+
+RUN useradd nobody
+USER nobody
+
+# Run the app
+CMD /app/greenfield-relayer --config-type "$CONFIG_TYPE" --config-path "$CONFIG_FILE_PATH" --private-key "$PRIVATE_KEY" --bls-private-key "$BLS_PRIVATE_KEY" --db-pass "$DB_PASS" --aws-region "$AWS_REGION" --aws-secret-key "$AWS_SECRET_KEY"
