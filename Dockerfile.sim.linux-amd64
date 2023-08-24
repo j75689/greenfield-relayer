@@ -1,3 +1,19 @@
+# Setup the non-root user
+FROM alpine:3 as nonroot
+ENV PACKAGES ca-certificates bash curl libstdc++
+# Create a non-root user
+ARG USER=nobody
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+RUN apk add --no-cache $PACKAGES \
+  && rm -rf /var/cache/apk/* \
+  && addgroup -g ${USER_GID} ${USER} \
+  && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
+  && addgroup ${USER} tty \
+  && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
+
+# Build the binary statically.
 FROM golang:1.20-alpine as builder
 
 # Set up apk dependencies
@@ -12,16 +28,6 @@ COPY . .
 # Install minimum necessary dependencies, remove packages
 RUN apk add --no-cache $PACKAGES
 
-# Create a non-root user
-ARG USER=nobody
-ARG USER_UID=1000
-ARG USER_GID=1000
-
-RUN addgroup -g ${USER_GID} ${USER} \
-  && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
-  && addgroup ${USER} tty \
-  && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
-
 # Install musl-cross for static linking
 RUN wget https://musl.cc/x86_64-linux-musl-cross.tgz
 RUN tar -xvf ./x86_64-linux-musl-cross.tgz
@@ -32,9 +38,7 @@ RUN GIT_COMMIT=$(git rev-parse HEAD) \
     REPO=github.com/bnb-chain/greenfield-relayer \
     GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=$(pwd)/x86_64-linux-musl-cross/bin/x86_64-linux-musl-gcc go build -ldflags "$REPO/version.AppVersion=$VERSION -X $REPO/version.GitCommit=$GIT_COMMIT -X $REPO/version.GitCommitDate=$GIT_COMMIT_DATE -extldflags=-static" -o build/greenfield-relayer main.go
 
-
-
-# Pull binary into a second stage deploy container
+# Pull binary into a stage for deployment
 FROM scratch
 
 ENV GREENFIELD_RELAYER_HOME /opt/app
@@ -51,7 +55,7 @@ ENV WORKDIR=/app
 WORKDIR ${WORKDIR}
 
 COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
-COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=nonroot /etc/passwd /etc/passwd
 USER nobody
 
 # Run the app
