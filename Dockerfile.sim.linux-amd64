@@ -1,17 +1,17 @@
-# Setup the non-root user
-FROM alpine:3 as nonroot
-ENV PACKAGES ca-certificates bash curl libstdc++
-# Create a non-root user
-ARG USER=nobody
-ARG USER_UID=1000
-ARG USER_GID=1000
+# # Setup the non-root user
+# FROM alpine:3 as nonroot
+# ENV PACKAGES bash
+# # Create a non-root user
+# ARG USER=app
+# ARG USER_UID=1000
+# ARG USER_GID=1000
 
-RUN apk add --no-cache $PACKAGES \
-  && rm -rf /var/cache/apk/* \
-  && addgroup -g ${USER_GID} ${USER} \
-  && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
-  && addgroup ${USER} tty \
-  && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
+# RUN apk add --no-cache $PACKAGES \
+#   && rm -rf /var/cache/apk/* \
+#   && addgroup -g ${USER_GID} ${USER} \
+#   && adduser -u ${USER_UID} -G ${USER} --shell /sbin/nologin --no-create-home -D ${USER} \
+#   && addgroup ${USER} tty \
+#   && sed -i -e "s/bin\/sh/bin\/bash/" /etc/passwd
 
 # Build the binary statically.
 FROM golang:1.20-alpine as builder
@@ -55,7 +55,7 @@ ENV WORKDIR=/app
 WORKDIR ${WORKDIR}
 
 COPY --from=builder /opt/app/build/greenfield-relayer ${WORKDIR}/
-COPY --from=nonroot /etc/passwd /etc/passwd
+#COPY --from=nonroot /etc/passwd /etc/passwd
 USER nobody
 
 # Run the app
